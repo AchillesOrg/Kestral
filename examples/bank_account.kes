@@ -1,0 +1,45 @@
+// Closures + maps: each account keeps its own private balance.
+fn makeAccount(owner, opening = 0) {
+  let balance = opening
+  let history = []
+
+  fn deposit(amount) {
+    if amount <= 0 {
+      fail "deposits must be positive"
+    }
+    balance += amount
+    push(history, "+{amount}")
+  }
+
+  fn withdraw(amount) {
+    if amount > balance {
+      fail "not enough money (balance is {balance})"
+    }
+    balance -= amount
+    push(history, "-{amount}")
+  }
+
+  give {
+    owner: owner,
+    deposit: deposit,
+    withdraw: withdraw,
+    balance: fn() => balance,
+    history: fn() => history
+  }
+}
+
+let acct = makeAccount("Ada", 100)
+acct.deposit(50)
+acct.withdraw(30)
+try {
+  acct.withdraw(500)
+} catch problem {
+  say "Refused:", problem
+}
+try {
+  acct.deposit(-5)
+} catch problem {
+  say "Refused:", problem
+}
+say "{acct.owner} has {acct.balance()}"
+say "History:", join(acct.history(), " ")

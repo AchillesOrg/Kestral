@@ -1,0 +1,14 @@
+// Reads one line of text and shows the most common words.
+let text = ask("Type some text: ")
+let counts = {}
+for word in split(lower(text)) {
+  let clean = replace(replace(replace(word, ".", ""), ",", ""), "!", "")
+  if clean != "" {
+    counts[clean] = (counts[clean] ?? 0) + 1
+  }
+}
+
+let ranked = sort(entries(counts), fn(pair) => -pair[1])
+for pair in slice(ranked, 0, 3) {
+  say "{pair[0]}: {pair[1]}"
+}

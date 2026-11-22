@@ -1,0 +1,3 @@
+// The classic first program.
+say "Hello, world!"
+say "Welcome to Kestral", 1 + 0, "point oh"

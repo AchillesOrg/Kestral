@@ -1,0 +1,7 @@
+// A tiny library, loaded by uses_tools.kes with: use "tools.kes"
+fn double(n) => n * 2
+fn clamp(n, low, high) => max(low, min(n, high))
+fn titleCase(text) {
+  let words = split(text)
+  give join(map(words, fn(w) => upper(w[0]) + slice(w, 1)), " ")
+}

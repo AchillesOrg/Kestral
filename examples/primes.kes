@@ -1,0 +1,20 @@
+// Print every prime number up to a limit.
+fn isPrime(n) {
+  if n < 2 {
+    give false
+  }
+  for d in 2..n {
+    if d * d > n {
+      stop
+    }
+    if n % d == 0 {
+      give false
+    }
+  }
+  give true
+}
+
+let primes = filter(1..50, isPrime)
+say "Primes up to 50:"
+say join(primes, " ")
+say "That is {len(primes)} primes."

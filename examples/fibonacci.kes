@@ -1,0 +1,28 @@
+// Fibonacci two ways: a simple loop, and recursion with a memory (a map).
+fn fibLoop(n) {
+  let a = 0
+  let b = 1
+  loop n times {
+    let next = a + b
+    a = b
+    b = next
+  }
+  give a
+}
+
+let memo = {}
+fn fibMemo(n) {
+  if n < 2 {
+    give n
+  }
+  if memo[n] != nothing {
+    give memo[n]
+  }
+  let result = fibMemo(n - 1) + fibMemo(n - 2)
+  memo[n] = result
+  give result
+}
+
+say "First 15:", join(map(0..14, fibLoop), ", ")
+say "fib(40) with a loop:", fibLoop(40)
+say "fib(40) with memory:", fibMemo(40)

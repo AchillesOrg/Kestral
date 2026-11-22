@@ -1,0 +1,4 @@
+use "tools.kes"
+say double(21)
+say clamp(150, 0, 100), clamp(-5, 0, 100)
+say titleCase("the kestral hovers over the field")

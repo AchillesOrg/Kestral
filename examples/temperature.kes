@@ -1,0 +1,10 @@
+// Convert a Celsius temperature to Fahrenheit, with a comment on how it feels.
+let c = num(ask("Degrees Celsius? "))
+let f = c * 9 / 5 + 32
+say "{c}C is {round(f, 1)}F"
+say match c {
+  -100..0 => "Freezing!"
+  1..15 => "Chilly."
+  16..25 => "Pleasant."
+  else => "Hot!"
+}
