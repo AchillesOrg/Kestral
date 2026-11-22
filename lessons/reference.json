@@ -1,0 +1,131 @@
+{
+  "syntax": [
+    {
+      "title": "Basics",
+      "code": "// a comment\nsay \"Hello\", 42, true     // print values, separated by spaces\nlet name = \"Ada\"          // create a name\nname = \"Grace\"            // change it later\nsay \"Hi {name}, {1 + 2}\"  // {…} puts values inside text\nlet a = 1; let b = 2     // ; also separates statements",
+      "note": "One statement per line. Names use letters, digits and underscores."
+    },
+    {
+      "title": "Values",
+      "code": "42   3.14   -7           // numbers\n\"text\"   'text'           // text (both quote styles work)\ntrue   false               // bools\nnothing                    // no value\n[1, 2, 3]                  // list\n{name: \"Ada\", age: 36}     // map\n1..5                       // range (includes both ends, can count down: 5..1)",
+      "note": "Falsy values: false, nothing, 0 and \"\". Everything else is true."
+    },
+    {
+      "title": "Operators",
+      "code": "+  -  *  /  %  **          // math (% is remainder, ** is power)\n==  !=  <  <=  >  >=        // comparing\nand   or   not             // logic (and / or return one of their sides)\na ?? b                     // b only when a is nothing\n\"a\" + \"b\"   \"ab\" * 3      // join and repeat text\n[1] + [2]                  // join lists\nx |> f   x |> f(2)         // pipe: f(x)   f(x, 2)\nx += 1   x -= 1   x *= 2   // shortcuts",
+      "note": "Precedence, high to low: **, unary -, * / %, + -, .., comparisons, not, and, or, ??, |>."
+    },
+    {
+      "title": "Decisions",
+      "code": "if score >= 90 {\n  say \"A\"\n} else if score >= 80 {\n  say \"B\"\n} else {\n  say \"C\"\n}\nlet kind = if n % 2 == 0 { \"even\" } else { \"odd\" }",
+      "note": "if is also a value. Conditions need no brackets."
+    },
+    {
+      "title": "Match",
+      "code": "let word = match n {\n  0 => \"none\"\n  1, 2, 3 => \"few\"\n  4..9 => \"some\"\n  else => \"many\"\n}",
+      "note": "First matching line wins. A line can be a value, a statement, or a { block }."
+    },
+    {
+      "title": "Loops",
+      "code": "loop 3 times { say \"hi\" }\nfor i in 1..5 { say i }\nfor item in [\"a\", \"b\"] { say item }\nfor i, item in [\"a\", \"b\"] { say i, item }\nfor key, value in {a: 1} { say key, value }\nwhile x < 100 { x *= 2 }\nstop    // leave the loop\nskip    // next round",
+      "note": "for also walks through text, ranges and map keys."
+    },
+    {
+      "title": "Functions",
+      "code": "fn add(a, b) {\n  give a + b\n}\nfn square(n) => n * n\nfn greet(name = \"friend\") => \"Hi {name}\"\nlet triple = fn(x) => x * 3\nsay add(1, 2), square(4), greet()",
+      "note": "give sends a value back. Functions can be used above the line that declares them. They can be stored, passed around and returned (closures)."
+    },
+    {
+      "title": "Lists and maps",
+      "code": "let xs = [10, 20, 30]\nsay xs[0], xs[-1], len(xs)\nxs[1] = 99\npush(xs, 40)\nlet m = {a: 1}\nm.b = 2\nm[\"c\"] = 3\nsay m.a, m[\"b\"], m.missing    // missing keys give nothing",
+      "note": "Lists start at position 0; negative positions count from the end. Lists and maps are shared when assigned, use copy() for an independent one."
+    },
+    {
+      "title": "Errors",
+      "code": "try {\n  fail \"something broke\"\n} catch e {\n  say \"caught: {e}\"\n}\nassert(1 + 1 == 2, \"math is broken\")",
+      "note": "e holds the error message as text. Runaway loops and runaway recursion cannot be caught."
+    },
+    {
+      "title": "Methods and files",
+      "code": "say \"hi\".upper()                 // same as upper(\"hi\")\nsay [3, 1, 2].sort().reverse()\nuse \"tools.kes\"                  // load another file (command line)",
+      "note": "Any built-in or function you define can be called with a dot, with the first value in front."
+    }
+  ],
+  "builtins": [
+    {
+      "group": "Input and conversion",
+      "items": [
+        { "name": "ask", "sig": "ask(prompt?)", "desc": "Reads one line of input as text. Gives nothing when the input has run out." },
+        { "name": "type", "sig": "type(value)", "desc": "The type as text: \"number\", \"text\", \"bool\", \"list\", \"map\", \"function\", \"range\" or \"nothing\"." },
+        { "name": "str", "sig": "str(value)", "desc": "Turns any value into text." },
+        { "name": "num", "sig": "num(text)", "desc": "Turns text like \"3.5\" into a number. Fails if it is not a number." },
+        { "name": "int", "sig": "int(value)", "desc": "A number (or number-like text) with the decimals cut off." },
+        { "name": "list", "sig": "list(value)", "desc": "Makes a list from a range, text (its characters) or a map (its keys)." },
+        { "name": "copy", "sig": "copy(value)", "desc": "A new, independent copy of a list or map." }
+      ]
+    },
+    {
+      "group": "Numbers",
+      "items": [
+        { "name": "abs", "sig": "abs(n)", "desc": "Distance from zero: abs(-3) is 3." },
+        { "name": "floor", "sig": "floor(n)", "desc": "Rounds down." },
+        { "name": "ceil", "sig": "ceil(n)", "desc": "Rounds up." },
+        { "name": "sqrt", "sig": "sqrt(n)", "desc": "Square root." },
+        { "name": "round", "sig": "round(n, digits?)", "desc": "Rounds to the nearest whole number, or to a number of decimal places." },
+        { "name": "min", "sig": "min(a, b, ...)  or  min(list)", "desc": "The smallest number." },
+        { "name": "max", "sig": "max(a, b, ...)  or  max(list)", "desc": "The largest number." },
+        { "name": "sum", "sig": "sum(list)", "desc": "Adds up a list of numbers." },
+        { "name": "random", "sig": "random()", "desc": "A random decimal from 0 up to (not including) 1." },
+        { "name": "randomInt", "sig": "randomInt(low, high)", "desc": "A random whole number from low to high, both included." }
+      ]
+    },
+    {
+      "group": "Lists, maps and ranges",
+      "items": [
+        { "name": "len", "sig": "len(value)", "desc": "How many items (or characters, or keys)." },
+        { "name": "push", "sig": "push(list, value, ...)", "desc": "Adds to the end of a list. Gives the list back." },
+        { "name": "pop", "sig": "pop(list)", "desc": "Removes and gives back the last item." },
+        { "name": "remove", "sig": "remove(list, position)  or  remove(map, key)", "desc": "Removes an item and gives it back." },
+        { "name": "slice", "sig": "slice(value, from, to?)", "desc": "A piece of a list or text. `to` is not included. Negative positions count from the end." },
+        { "name": "reverse", "sig": "reverse(value)", "desc": "A reversed copy of a list or text." },
+        { "name": "sort", "sig": "sort(list, key?)", "desc": "A sorted copy. With a function, sorts by what the function gives for each item." },
+        { "name": "unique", "sig": "unique(list)", "desc": "A copy with duplicates removed." },
+        { "name": "keys", "sig": "keys(map)", "desc": "A list of the keys." },
+        { "name": "values", "sig": "values(map)", "desc": "A list of the values." },
+        { "name": "entries", "sig": "entries(map)", "desc": "A list of [key, value] pairs." },
+        { "name": "contains", "sig": "contains(thing, x)", "desc": "True if text contains the text x, a list holds x, a map has the key x, or a range includes x." },
+        { "name": "find", "sig": "find(thing, x)", "desc": "Position of x in text or a list, or -1 when it is not there." }
+      ]
+    },
+    {
+      "group": "Working with functions",
+      "items": [
+        { "name": "map", "sig": "map(list, fn)", "desc": "A new list made by applying fn to every item. If fn takes two parameters it also gets the position." },
+        { "name": "filter", "sig": "filter(list, fn)", "desc": "Keeps the items for which fn gives something true." },
+        { "name": "reduce", "sig": "reduce(list, fn, start?)", "desc": "Folds a list into one value. fn gets (total so far, next item)." },
+        { "name": "any", "sig": "any(list, fn)", "desc": "True if fn is true for at least one item." },
+        { "name": "all", "sig": "all(list, fn)", "desc": "True if fn is true for every item." }
+      ]
+    },
+    {
+      "group": "Text",
+      "items": [
+        { "name": "upper", "sig": "upper(text)", "desc": "UPPER CASE." },
+        { "name": "lower", "sig": "lower(text)", "desc": "lower case." },
+        { "name": "trim", "sig": "trim(text)", "desc": "Removes spaces at both ends." },
+        { "name": "split", "sig": "split(text, separator?)", "desc": "Cuts text into a list. With no separator it splits on spaces; with \"\" it gives every character." },
+        { "name": "join", "sig": "join(list, separator?)", "desc": "Glues the items of a list into one text." },
+        { "name": "replace", "sig": "replace(text, old, new)", "desc": "Replaces every old with new." },
+        { "name": "startsWith", "sig": "startsWith(text, start)", "desc": "True if the text begins with start." },
+        { "name": "endsWith", "sig": "endsWith(text, end)", "desc": "True if the text ends with end." },
+        { "name": "repeat", "sig": "repeat(text, times)", "desc": "The text repeated. Same as text * times." }
+      ]
+    },
+    {
+      "group": "Checking",
+      "items": [
+        { "name": "assert", "sig": "assert(condition, message?)", "desc": "Does nothing when the condition is true. Fails with the message when it is false." }
+      ]
+    }
+  ]
+}
