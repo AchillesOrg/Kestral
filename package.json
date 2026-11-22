@@ -1,0 +1,12 @@
+{
+  "name": "kestral",
+  "version": "1.0.0",
+  "description": "Kestral: a small, friendly, general-purpose programming language (.kes files)",
+  "main": "src/kestral.js",
+  "bin": { "kestral": "bin/kestral.js" },
+  "scripts": {
+    "test": "node test/run-tests.js",
+    "build": "node app/build.js"
+  },
+  "license": "MIT"
+}
