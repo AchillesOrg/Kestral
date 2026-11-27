@@ -33,6 +33,15 @@ std::pair<int, int> get_terminal_size();
 bool stdin_stdout_are_tty();
 std::string read_key();
 
+struct MouseEvent {
+    std::string kind; // "CLICK", "WHEEL_UP", "WHEEL_DOWN"
+    int row = 0;
+    int col = 0;
+};
+bool parse_mouse_event(const std::string& key, MouseEvent& out);
+std::string footer_shortcut_hit(const std::string& footer, int col,
+                                const std::vector<std::pair<std::string, std::string>>& mappings);
+
 std::string strip_ansi(const std::string& s);
 std::size_t visible_columns(const std::string& s);
 std::string clip_ansi(const std::string& s, int max_cols);

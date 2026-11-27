@@ -283,29 +283,96 @@ std::string read_key() {
             fd_set efds;
             FD_ZERO(&efds);
             FD_SET(STDIN_FILENO, &efds);
-            timeval etv{0, 30000};
+            timeval etv{0, 50000};
             if (select(STDIN_FILENO + 1, &efds, nullptr, nullptr, &etv) > 0) {
                 char nxt = 0;
-                if (read(STDIN_FILENO, &nxt, 1) > 0 && nxt == '[') {
-                    std::string seq;
-                    for (;;) {
-                        fd_set sfds;
-                        FD_ZERO(&sfds);
-                        FD_SET(STDIN_FILENO, &sfds);
-                        timeval stv{0, 30000};
-                        if (select(STDIN_FILENO + 1, &sfds, nullptr, nullptr, &stv) <= 0) break;
-                        char sc = 0;
-                        if (read(STDIN_FILENO, &sc, 1) <= 0) break;
-                        seq += sc;
-                        if (std::isalpha(static_cast<unsigned char>(sc)) || sc == '~') break;
+                if (read(STDIN_FILENO, &nxt, 1) > 0) {
+                    if (nxt == '[') {
+                        std::string seq;
+                        for (;;) {
+                            fd_set sfds;
+                            FD_ZERO(&sfds);
+                            FD_SET(STDIN_FILENO, &sfds);
+                            timeval stv{0, 50000};
+                            if (select(STDIN_FILENO + 1, &sfds, nullptr, nullptr, &stv) <= 0) break;
+                            char sc = 0;
+                            if (read(STDIN_FILENO, &sc, 1) <= 0) break;
+                            seq += sc;
+                            if (std::isalpha(static_cast<unsigned char>(sc)) || sc == '~') break;
+                        }
+                        if (seq == "M") {
+                            for (int mi = 0; mi < 3; ++mi) {
+                                fd_set mfds;
+                                FD_ZERO(&mfds);
+                                FD_SET(STDIN_FILENO, &mfds);
+                                timeval mtv{0, 50000};
+                                if (select(STDIN_FILENO + 1, &mfds, nullptr, nullptr, &mtv) <= 0) break;
+                                char disc = 0;
+                                if (read(STDIN_FILENO, &disc, 1) <= 0) break;
+                            }
+                            return "";
+                        }
+                        if (seq.size() >= 5 && seq[0] == '<' && (seq.back() == 'M' || seq.back() == 'm')) {
+                            std::string body = seq.substr(1, seq.size() - 2);
+                            auto s1 = body.find(';');
+                            auto s2 = (s1 != std::string::npos) ? body.find(';', s1 + 1) : std::string::npos;
+                            if (s1 != std::string::npos && s2 != std::string::npos) {
+                                try {
+                                    int btn = std::stoi(body.substr(0, s1));
+                                    int col_m = std::stoi(body.substr(s1 + 1, s2 - s1 - 1));
+                                    int row_m = std::stoi(body.substr(s2 + 1));
+                                    if (seq.back() == 'm') return "";
+                                    if ((btn & 64) != 0) {
+                                        int wheel = btn & 3;
+                                        if (wheel == 0) return "MOUSE:WHEEL_UP:" + std::to_string(row_m) + ":" + std::to_string(col_m);
+                                        if (wheel == 1) return "MOUSE:WHEEL_DOWN:" + std::to_string(row_m) + ":" + std::to_string(col_m);
+                                        return "";
+                                    }
+                                    if ((btn & 32) == 0 && (btn & 3) == 0) {
+                                        return "MOUSE:CLICK:" + std::to_string(row_m) + ":" + std::to_string(col_m);
+                                    }
+                                } catch (...) {
+                                    return "";
+                                }
+                            }
+                            return "";
+                        }
+                        if (seq == "A") return "UP";
+                        if (seq == "B") return "DOWN";
+                        if (seq == "C") return "RIGHT";
+                        if (seq == "D") return "LEFT";
+                        if (seq == "H" || seq == "1~") return "HOME";
+                        if (seq == "F" || seq == "4~") return "END";
+                        if (seq == "3~") return "DELETE";
+                        if (!seq.empty()) {
+                            char tail = seq.back();
+                            if (tail == 'A') return "UP";
+                            if (tail == 'B') return "DOWN";
+                            if (tail == 'C') return "RIGHT";
+                            if (tail == 'D') return "LEFT";
+                            if (tail == 'H') return "HOME";
+                            if (tail == 'F') return "END";
+                        }
+                        return "";
                     }
-                    if (seq == "A") return "UP";
-                    if (seq == "B") return "DOWN";
-                    if (seq == "C") return "RIGHT";
-                    if (seq == "D") return "LEFT";
-                    if (seq == "H" || seq == "1~") return "HOME";
-                    if (seq == "F" || seq == "4~") return "END";
-                    if (seq == "3~") return "DELETE";
+                    if (nxt == 'O') {
+                        fd_set ofds;
+                        FD_ZERO(&ofds);
+                        FD_SET(STDIN_FILENO, &ofds);
+                        timeval otv{0, 50000};
+                        if (select(STDIN_FILENO + 1, &ofds, nullptr, nullptr, &otv) > 0) {
+                            char oc = 0;
+                            if (read(STDIN_FILENO, &oc, 1) > 0) {
+                                if (oc == 'A') return "UP";
+                                if (oc == 'B') return "DOWN";
+                                if (oc == 'C') return "RIGHT";
+                                if (oc == 'D') return "LEFT";
+                                if (oc == 'H') return "HOME";
+                                if (oc == 'F') return "END";
+                            }
+                        }
+                        return "";
+                    }
                     return "";
                 }
             }
@@ -314,6 +381,38 @@ std::string read_key() {
         return std::string(1, c);
     }
 #endif
+}
+
+bool parse_mouse_event(const std::string& key, MouseEvent& out) {
+    if (key.rfind("MOUSE:", 0) != 0) return false;
+    auto p1 = key.find(':', 6);
+    if (p1 == std::string::npos) return false;
+    auto p2 = key.find(':', p1 + 1);
+    if (p2 == std::string::npos) return false;
+    std::string kind = key.substr(6, p1 - 6);
+    if (kind != "CLICK" && kind != "WHEEL_UP" && kind != "WHEEL_DOWN") return false;
+    try {
+        int r = std::stoi(key.substr(p1 + 1, p2 - p1 - 1));
+        int c = std::stoi(key.substr(p2 + 1));
+        out = MouseEvent{kind, r, c};
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+std::string footer_shortcut_hit(const std::string& footer, int col,
+                                const std::vector<std::pair<std::string, std::string>>& mappings) {
+    if (col < 1) return "";
+    for (const auto& kv : mappings) {
+        auto pos = footer.find(kv.first);
+        if (pos != std::string::npos) {
+            int start_col = static_cast<int>(pos) + 1;
+            int end_col = start_col + static_cast<int>(kv.first.size()) - 1;
+            if (col >= start_col && col <= end_col) return kv.second;
+        }
+    }
+    return "";
 }
 
 std::string strip_ansi(const std::string& s) {
@@ -866,7 +965,7 @@ std::string render_welcome_menu(int selected, int rows, int cols,
     std::string header_bar = std::string(" ") + BOLD + "NANA" + RESET + " " + GRAY + "· studio" + RESET +
                              std::string(static_cast<std::size_t>(gap_top), ' ') + GRAY + right_top + RESET;
     std::string hairline = make_hairline(cols);
-    std::string footer_bar = std::string(" ") + DIM + "↑/↓ Move   Enter Select   1-9 Quick Pick   t Surface   Esc/q Quit" + RESET;
+    std::string footer_bar = std::string(" ") + DIM + "↑/↓ Move   Enter/Click Select   1-9 Quick Pick   t Surface   Esc/q Quit" + RESET;
 
     int panel_w = (cols >= 56) ? std::min(cols - 4, 74) : (cols - 2);
     std::string margin(static_cast<std::size_t>(std::max((cols - panel_w) / 2, 1)), ' ');
@@ -1090,7 +1189,7 @@ std::string prompt_bar(const std::string& label, const std::string& def,
                   << pad_right_vis(clipped, cols) << RESET << bg << "\x1b[K"
                   << "\x1b[?25h\x1b[" << prow << ";" << pcol << "H" << std::flush;
         std::string k = read_key();
-        if (k == "RESIZE") continue;
+        if (k.empty() || k == "RESIZE" || k.rfind("MOUSE:", 0) == 0) continue;
         if (k == "\r" || k == "\n") return val;
         if (k == "ESC" || k == "\x03") {
             if (canceled) *canceled = true;
@@ -1121,13 +1220,25 @@ void show_overlay(const std::string& title, const std::string& body, const std::
             screen.push_back(" " + lines[static_cast<std::size_t>(scroll + i)]);
         }
         while (static_cast<int>(screen.size()) < rows - 2) screen.push_back("");
-        std::string hint = (max_scroll > 0) ? " ↑/↓ Scroll   Any other key to return... "
-                                            : " Press any key to return... ";
+        std::string hint = (max_scroll > 0) ? " ↑/↓ Scroll   Click/Any key to return... "
+                                            : " Click or press any key to return... ";
         screen.push_back(hairline);
         screen.push_back(std::string(DIM) + hint + RESET);
         std::cout << compose_screen(screen, rows, cols, -1, -1, bg_mode) << std::flush;
         std::string k = read_key();
-        if (k == "RESIZE") continue;
+        if (k.empty() || k == "RESIZE") continue;
+        MouseEvent me;
+        if (parse_mouse_event(k, me)) {
+            if (me.kind == "WHEEL_UP") {
+                if (max_scroll > 0) scroll = std::max(0, scroll - 3);
+                continue;
+            }
+            if (me.kind == "WHEEL_DOWN") {
+                if (max_scroll > 0) scroll = std::min(max_scroll, scroll + 3);
+                continue;
+            }
+            return;
+        }
         if (k == "UP" && max_scroll > 0) { scroll = std::max(0, scroll - 1); continue; }
         if (k == "DOWN" && max_scroll > 0) { scroll = std::min(max_scroll, scroll + 1); continue; }
         return;
@@ -1153,18 +1264,50 @@ static void run_buffer_in_nana(const NanaBuffer& buf, const std::string& bg_mode
 static bool select_template_tui(std::string& bg_mode, NanaBuffer& out_buf) {
     int sel = 0;
     const auto& tpls = nana_templates();
+    int total = static_cast<int>(tpls.size());
     for (;;) {
         auto [rows, cols] = get_terminal_size();
+        int rows_e = std::max(rows, 10);
+        int cols_e = std::max(cols, 36);
         std::cout << render_template_picker(sel, rows, cols, bg_mode) << std::flush;
         std::string k = read_key();
-        if (k == "RESIZE") continue;
+        if (k.empty() || k == "RESIZE") continue;
+        MouseEvent me;
+        if (parse_mouse_event(k, me)) {
+            if (me.kind == "WHEEL_UP") { sel = (sel - 1 + total) % total; continue; }
+            if (me.kind == "WHEEL_DOWN") { sel = (sel + 1) % total; continue; }
+            int body_rows = rows_e - 4;
+            int cap = 0;
+            int first_row = 3;
+            bool in_col = true;
+            if (cols_e >= 72) {
+                int left_w = std::max(26, std::min(40, cols_e * 36 / 100));
+                cap = std::max(body_rows - 5, 3);
+                first_row = 6;
+                in_col = (me.col <= left_w);
+            } else {
+                cap = std::max(std::min(total, body_rows / 2), 2);
+            }
+            int scroll = std::max(0, sel - cap + 1);
+            if (in_col && me.row >= first_row && me.row < first_row + cap) {
+                int idx = scroll + (me.row - first_row);
+                if (idx >= 0 && idx < total) {
+                    if (idx == sel) {
+                        out_buf = NanaBuffer::from_template(tpls[static_cast<std::size_t>(idx)]);
+                        return true;
+                    }
+                    sel = idx;
+                }
+            }
+            continue;
+        }
         if (k == "t") { bg_mode = save_bg_mode(bg_mode == "mica" ? "black" : "mica"); continue; }
-        if (k == "UP") sel = (sel - 1 + static_cast<int>(tpls.size())) % static_cast<int>(tpls.size());
-        else if (k == "DOWN") sel = (sel + 1) % static_cast<int>(tpls.size());
+        if (k == "UP") sel = (sel - 1 + total) % total;
+        else if (k == "DOWN") sel = (sel + 1) % total;
         else if (k == "\r" || k == "\n") { out_buf = NanaBuffer::from_template(tpls[static_cast<std::size_t>(sel)]); return true; }
         else if (k.size() == 1 && k[0] >= '1' && k[0] <= '9') {
             int idx = k[0] - '1';
-            if (idx < static_cast<int>(tpls.size())) { out_buf = NanaBuffer::from_template(tpls[static_cast<std::size_t>(idx)]); return true; }
+            if (idx < total) { out_buf = NanaBuffer::from_template(tpls[static_cast<std::size_t>(idx)]); return true; }
         } else if (k == "ESC" || k == "q" || k == "\x03") return false;
     }
 }
@@ -1176,9 +1319,43 @@ static bool select_file_tui(std::string& bg_mode, NanaBuffer& out_buf) {
     int total = static_cast<int>(files.size()) + 1;
     for (;;) {
         auto [rows, cols] = get_terminal_size();
+        int rows_e = std::max(rows, 10);
+        int cols_e = std::max(cols, 36);
         std::cout << render_file_picker(files, sel, rows, cols, root, bg_mode) << std::flush;
         std::string k = read_key();
-        if (k == "RESIZE") continue;
+        if (k.empty() || k == "RESIZE") continue;
+        MouseEvent me;
+        if (parse_mouse_event(k, me)) {
+            if (me.kind == "WHEEL_UP") { sel = (sel - 1 + total) % total; continue; }
+            if (me.kind == "WHEEL_DOWN") { sel = (sel + 1) % total; continue; }
+            int body_rows = rows_e - 4;
+            int cap = std::max(body_rows - 4, 3);
+            int first_row = 3;
+            bool in_col = true;
+            if (cols_e >= 72) {
+                int left_w = std::max(26, std::min(40, cols_e * 36 / 100));
+                first_row = 6;
+                in_col = (me.col <= left_w);
+            }
+            int scroll = std::max(0, sel - cap + 1);
+            if (in_col && me.row >= first_row && me.row < first_row + cap) {
+                int idx = scroll + (me.row - first_row);
+                if (idx >= 0 && idx < total) {
+                    if (idx == sel) {
+                        if (idx < static_cast<int>(files.size())) {
+                            out_buf = NanaBuffer::from_file(files[static_cast<std::size_t>(idx)]);
+                            return true;
+                        }
+                        bool canc = false;
+                        std::string p = prompt_bar("Open file path: ", "", nullptr, bg_mode, &canc);
+                        if (!canc && !p.empty()) { out_buf = NanaBuffer::from_file(p); return true; }
+                    } else {
+                        sel = idx;
+                    }
+                }
+            }
+            continue;
+        }
         if (k == "t") { bg_mode = save_bg_mode(bg_mode == "mica" ? "black" : "mica"); continue; }
         if (k == "UP") sel = (sel - 1 + total) % total;
         else if (k == "DOWN") sel = (sel + 1) % total;
@@ -1204,13 +1381,35 @@ static bool run_menu_tui(NanaBuffer* active, bool& has_active, std::string& bg_m
         auto items = welcome_items(has_active, bg_mode);
         sel = std::max(0, std::min(sel, static_cast<int>(items.size()) - 1));
         auto [rows, cols] = get_terminal_size();
+        int rows_e = std::max(rows, 10);
         std::cout << render_welcome_menu(sel, rows, cols, has_active, bg_mode) << std::flush;
         std::string k = read_key();
-        if (k == "RESIZE") continue;
+        if (k.empty() || k == "RESIZE") continue;
         if (k == "t") { bg_mode = save_bg_mode(bg_mode == "mica" ? "black" : "mica"); continue; }
 
         std::string action;
-        if (k == "UP") sel = (sel - 1 + static_cast<int>(items.size())) % static_cast<int>(items.size());
+        MouseEvent me;
+        if (parse_mouse_event(k, me)) {
+            if (me.kind == "WHEEL_UP") {
+                sel = (sel - 1 + static_cast<int>(items.size())) % static_cast<int>(items.size());
+                continue;
+            }
+            if (me.kind == "WHEEL_DOWN") {
+                sel = (sel + 1) % static_cast<int>(items.size());
+                continue;
+            }
+            int first_row = (rows_e >= 22) ? 10 : ((rows_e >= 18) ? 9 : 5);
+            int avail = std::max(rows_e - 4 - (first_row - 3), 3);
+            int scroll = (sel >= avail) ? (sel - avail + 1) : 0;
+            if (me.row >= first_row && me.row < first_row + avail) {
+                int idx = scroll + (me.row - first_row);
+                if (idx >= 0 && idx < static_cast<int>(items.size())) {
+                    sel = idx;
+                    action = std::get<0>(items[static_cast<std::size_t>(idx)]);
+                }
+            }
+            if (action.empty()) continue;
+        } else if (k == "UP") sel = (sel - 1 + static_cast<int>(items.size())) % static_cast<int>(items.size());
         else if (k == "DOWN") sel = (sel + 1) % static_cast<int>(items.size());
         else if (k == "\r" || k == "\n") action = std::get<0>(items[static_cast<std::size_t>(sel)]);
         else if (k.size() == 1 && k[0] >= '1' && k[0] <= '9') {
@@ -1273,9 +1472,9 @@ int run_nana(const std::string& filepath, const std::string& bg_override) {
     RawTtyGuard tty;
     tty.enter();
 
-    std::cout << "\x1b[?1049h\x1b[?25h" << std::flush;
+    std::cout << "\x1b[?1049h\x1b[?1000h\x1b[?1006h\x1b[?25h" << std::flush;
     struct ScreenRestore {
-        ~ScreenRestore() { std::cout << "\x1b[?1049l\x1b[?25h\x1b[0m" << std::flush; }
+        ~ScreenRestore() { std::cout << "\x1b[?1006l\x1b[?1000l\x1b[?1049l\x1b[?25h\x1b[0m" << std::flush; }
     } screen_restore;
 
     NanaBuffer buf;
@@ -1289,10 +1488,64 @@ int run_nana(const std::string& filepath, const std::string& bg_override) {
 
     for (;;) {
         auto [rows, cols] = get_terminal_size();
+        int rows_e = std::max(rows, 8);
+        int cols_e = std::max(cols, 36);
         std::cout << buf.render_frame(rows, cols, bg_mode) << std::flush;
         std::string k = read_key();
-        if (k == "RESIZE") continue;
+        if (k.empty() || k == "RESIZE") continue;
         buf.status.clear();
+
+        MouseEvent me;
+        if (parse_mouse_event(k, me)) {
+            int body_rows = rows_e - 4;
+            int gutter_w = std::max(static_cast<int>(std::to_string(buf.lines.size()).size()) + 3, 6);
+            int total_lines = static_cast<int>(buf.lines.size());
+            if (me.kind == "WHEEL_UP") {
+                if (buf.scroll_y > 0) {
+                    buf.scroll_y = std::max(0, buf.scroll_y - 3);
+                    if (buf.row >= buf.scroll_y + body_rows) buf.row = buf.scroll_y + body_rows - 1;
+                } else {
+                    buf.row = std::max(0, buf.row - 3);
+                }
+                buf.clamp_col();
+                continue;
+            }
+            if (me.kind == "WHEEL_DOWN") {
+                int max_sy = std::max(0, total_lines - body_rows);
+                if (buf.scroll_y < max_sy) {
+                    buf.scroll_y = std::min(max_sy, buf.scroll_y + 3);
+                    if (buf.row < buf.scroll_y) buf.row = buf.scroll_y;
+                } else {
+                    buf.row = std::min(total_lines - 1, buf.row + 3);
+                }
+                buf.clamp_col();
+                continue;
+            }
+            if (me.row == rows_e) {
+                std::string footer = std::string(" ^S Save   ^R Run   ^P Menu   ^K Cut   ^U Paste   ^G Help   ^X Exit ")
+                                         .substr(0, static_cast<std::size_t>(cols_e));
+                std::string mapped = footer_shortcut_hit(footer, me.col, {
+                    {"^S Save", "\x13"},
+                    {"^R Run", "\x12"},
+                    {"^P Menu", "\x10"},
+                    {"^K Cut", "\x0b"},
+                    {"^U Paste", "\x15"},
+                    {"^G Help", "\x07"},
+                    {"^X Exit", "\x18"},
+                });
+                if (mapped.empty()) continue;
+                k = mapped;
+            } else if (me.row >= 3 && me.row <= 2 + body_rows) {
+                int tr = std::min(std::max(0, buf.scroll_y + (me.row - 3)), total_lines - 1);
+                int max_c = static_cast<int>(buf.lines[static_cast<std::size_t>(tr)].size());
+                int tc = std::min(std::max(0, buf.scroll_x + std::max(0, me.col - (gutter_w + 1))), max_c);
+                buf.row = tr;
+                buf.col = tc;
+                continue;
+            } else {
+                continue;
+            }
+        }
 
         if (k == "\x10") {
             NanaBuffer next_buf;

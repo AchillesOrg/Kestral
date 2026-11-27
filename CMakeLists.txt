@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(kestral VERSION 2.0.0 LANGUAGES CXX)
+project(kestral VERSION 2.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,6 +28,11 @@ target_link_libraries(kestral PRIVATE kestral_core)
 
 add_executable(test_kestral tests/test_kestral.cpp)
 target_link_libraries(test_kestral PRIVATE kestral_core)
+
+if(MSVC)
+  target_link_options(kestral PRIVATE /STACK:8388608)
+  target_link_options(test_kestral PRIVATE /STACK:8388608)
+endif()
 
 enable_testing()
 add_test(NAME kestral_tests COMMAND test_kestral WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

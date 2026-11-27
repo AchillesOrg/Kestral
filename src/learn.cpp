@@ -699,28 +699,43 @@ int run_learn(int lesson_num, bool list_only, bool reset,
     RawTtyGuard tty;
     if (!managed_tty) {
         tty.enter();
-        std::cout << "\x1b[?1049h" << std::flush;
+        std::cout << "\x1b[?1049h\x1b[?1000h\x1b[?1006h" << std::flush;
     }
     struct AltGuard {
         bool own;
-        ~AltGuard() { if (own) std::cout << "\x1b[?1049l\x1b[?25h\x1b[0m" << std::flush; }
+        ~AltGuard() { if (own) std::cout << "\x1b[?1006l\x1b[?1000l\x1b[?1049l\x1b[?25h\x1b[0m" << std::flush; }
     } alt_guard{!managed_tty};
 
     const auto& ls = kestral_lessons();
     auto pick_map = [&](int initial_sel) -> int {
-        int sel = std::max(0, std::min(initial_sel, static_cast<int>(ls.size()) - 1));
+        int total = static_cast<int>(ls.size());
+        int sel = std::max(0, std::min(initial_sel, total - 1));
         for (;;) {
             auto [rows, cols] = get_terminal_size();
+            int rows_e = std::max(rows, 10);
             std::cout << render_lesson_map(sel, prog.completed, rows, cols, bg_mode) << std::flush;
             std::string k = read_key();
-            if (k == "RESIZE") continue;
+            if (k.empty() || k == "RESIZE") continue;
+            MouseEvent me;
+            if (parse_mouse_event(k, me)) {
+                if (me.kind == "WHEEL_UP") { sel = (sel - 1 + total) % total; continue; }
+                if (me.kind == "WHEEL_DOWN") { sel = (sel + 1) % total; continue; }
+                int first_row = (rows_e >= 17) ? 7 : 4;
+                int cap = std::max(rows_e - 2 - (first_row - 1), 2);
+                int scroll = std::max(0, sel - cap + 1);
+                if (me.row >= first_row && me.row < first_row + cap) {
+                    int idx = scroll + (me.row - first_row);
+                    if (idx >= 0 && idx < total) return idx;
+                }
+                continue;
+            }
             if (k == "t") { bg_mode = save_bg_mode(bg_mode == "mica" ? "black" : "mica"); continue; }
-            if (k == "UP") sel = (sel - 1 + static_cast<int>(ls.size())) % static_cast<int>(ls.size());
-            else if (k == "DOWN") sel = (sel + 1) % static_cast<int>(ls.size());
+            if (k == "UP") sel = (sel - 1 + total) % total;
+            else if (k == "DOWN") sel = (sel + 1) % total;
             else if (k == "\r" || k == "\n") return sel;
             else if (k.size() == 1 && k[0] >= '1' && k[0] <= '9') {
                 int idx = k[0] - '1';
-                if (idx < static_cast<int>(ls.size())) return idx;
+                if (idx < total) return idx;
             } else if (k == "r") {
                 bool canc = false;
                 std::string ans = prompt_bar("Reset all course progress? (y/n): ", "", nullptr, bg_mode, &canc);
@@ -759,11 +774,76 @@ int run_learn(int lesson_num, bool list_only, bool reset,
 
         for (;;) {
             auto [rows, cols] = get_terminal_size();
+            int rows_e = std::max(rows, 10);
+            int cols_e = std::max(cols, 36);
             std::cout << render_learn_workspace(lesson, buf, results, hint_idx, prog.completed, rows, cols, bg_mode)
                       << std::flush;
             std::string k = read_key();
-            if (k == "RESIZE") continue;
+            if (k.empty() || k == "RESIZE") continue;
             buf.status.clear();
+
+            MouseEvent me;
+            if (parse_mouse_event(k, me)) {
+                int body_rows = rows_e - 4;
+                int gutter_w = std::max(static_cast<int>(std::to_string(buf.lines.size()).size()) + 3, 6);
+                int total_lines = static_cast<int>(buf.lines.size());
+                int code_start_row = 5;
+                int ed_rows = std::max(body_rows - 2, 3);
+                int code_start_col = gutter_w + 1;
+                int editor_min_col = 1;
+                if (cols_e >= 92) {
+                    int left_w = std::max(36, std::min(52, cols_e * 42 / 100));
+                    code_start_row = 3;
+                    ed_rows = body_rows;
+                    code_start_col = left_w + 1 + gutter_w + 1;
+                    editor_min_col = left_w + 2;
+                }
+                if (me.kind == "WHEEL_UP") {
+                    if (buf.scroll_y > 0) {
+                        buf.scroll_y = std::max(0, buf.scroll_y - 3);
+                        if (buf.row >= buf.scroll_y + ed_rows) buf.row = buf.scroll_y + ed_rows - 1;
+                    } else {
+                        buf.row = std::max(0, buf.row - 3);
+                    }
+                    buf.clamp_col();
+                    continue;
+                }
+                if (me.kind == "WHEEL_DOWN") {
+                    int max_sy = std::max(0, total_lines - ed_rows);
+                    if (buf.scroll_y < max_sy) {
+                        buf.scroll_y = std::min(max_sy, buf.scroll_y + 3);
+                        if (buf.row < buf.scroll_y) buf.row = buf.scroll_y;
+                    } else {
+                        buf.row = std::min(total_lines - 1, buf.row + 3);
+                    }
+                    buf.clamp_col();
+                    continue;
+                }
+                if (me.row == rows_e) {
+                    std::string footer = std::string(" ^T Tests  ^R Run  ^H Hint  ^B Brief  ^L Map  ^E Reset  ^X Exit ")
+                                             .substr(0, static_cast<std::size_t>(cols_e));
+                    std::string mapped = footer_shortcut_hit(footer, me.col, {
+                        {"^T Tests", "\x14"},
+                        {"^R Run", "\x12"},
+                        {"^H Hint", "\x08"},
+                        {"^B Brief", "\x02"},
+                        {"^L Map", "\x0c"},
+                        {"^E Reset", "\x05"},
+                        {"^X Exit", "\x18"},
+                    });
+                    if (mapped.empty()) continue;
+                    k = mapped;
+                } else if (me.col >= editor_min_col && me.row >= code_start_row && me.row < code_start_row + ed_rows) {
+                    int tr = std::min(std::max(0, buf.scroll_y + (me.row - code_start_row)), total_lines - 1);
+                    int max_c = static_cast<int>(buf.lines[static_cast<std::size_t>(tr)].size());
+                    int tc = std::min(std::max(0, buf.scroll_x + std::max(0, me.col - code_start_col)), max_c);
+                    buf.row = tr;
+                    buf.col = tc;
+                    continue;
+                } else {
+                    continue;
+                }
+            }
 
             if (k == "\x18" || k == "\x11" || k == "\x03") {
                 prog.current = lesson.number;

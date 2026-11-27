@@ -66,6 +66,7 @@ std::string read_file_str(const fs::path& p) {
 } // namespace
 
 int main() {
+    try {
     enable_utf8_console();
 
     /* ---- Core Language Semantics Tests ---- */
@@ -306,9 +307,20 @@ int main() {
         check("learn workspace no newline", lw.find('\n') == std::string::npos);
         check("learn map no newline", render_lesson_map(0, {"01-hello-cards"}, 24, 90, "black").find('\n') == std::string::npos);
         check("curriculum summary has capstone", format_curriculum_list({}).find("Number Cruncher") != std::string::npos);
+
+        MouseEvent me;
+        check("parse_mouse_event click", parse_mouse_event("MOUSE:CLICK:10:25", me) && me.kind == "CLICK" && me.row == 10 && me.col == 25);
+        check("parse_mouse_event wheel up", parse_mouse_event("MOUSE:WHEEL_UP:5:12", me) && me.kind == "WHEEL_UP" && me.row == 5 && me.col == 12);
+        check("parse_mouse_event wheel down", parse_mouse_event("MOUSE:WHEEL_DOWN:5:12", me) && me.kind == "WHEEL_DOWN" && me.row == 5 && me.col == 12);
+        check("parse_mouse_event invalid", !parse_mouse_event("UP", me) && !parse_mouse_event("MOUSE:BAD:1:2", me));
+        check("footer_shortcut_hit", footer_shortcut_hit(" ^S Save   ^R Run   ^X Exit ", 13, {{"^S Save", "\x13"}, {"^R Run", "\x12"}}) == "\x12");
     }
 
-    std::cout << "\nKestral test suite: " << g_pass << " passed, " << g_fail << " failed.\n";
-    for (const auto& f : g_failures) std::cout << f << "\n";
+    std::cout << "\nKestral test suite: " << g_pass << " passed, " << g_fail << " failed." << std::endl;
+    for (const auto& f : g_failures) std::cout << f << std::endl;
     return g_fail == 0 ? 0 : 1;
+    } catch (const std::exception& e) {
+        std::cerr << "UNHANDLED EXCEPTION: " << e.what() << std::endl;
+        return 2;
+    }
 }

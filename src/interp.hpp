@@ -11,7 +11,7 @@ namespace kestral {
 
 struct InterpConfig {
     long long max_steps = 5000000000LL;
-    int max_depth = 600;
+    int max_depth = 200;
     std::size_t max_output = 2000000;
     std::function<void(const std::string&)> print_fn;
     std::function<Value(const std::string&)> ask_fn;
