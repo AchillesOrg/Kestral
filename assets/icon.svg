@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect x="24" y="24" width="464" height="464" rx="108" ry="108" fill="#000000"/>
+  <!-- Custom tall condensed single-stroke K E S matching the AchillesOrg geometric family -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <!-- K -->
+    <path d="M 118 176 L 118 336"/>
+    <path d="M 176 176 L 122 256 L 178 336"/>
+    <!-- E -->
+    <path d="M 284 176 L 224 176 L 224 336 L 284 336"/>
+    <path d="M 224 256 L 272 256"/>
+    <!-- S -->
+    <path d="M 390 198 C 390 176 326 176 326 208 C 326 244 392 252 392 296 C 392 336 326 336 326 308"/>
+  </g>
+</svg>

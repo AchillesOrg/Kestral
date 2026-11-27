@@ -1,0 +1,70 @@
+name: Release Kestral Binaries
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            asset: kestral-macos-arm64
+            bin_path: build-ci/kestral
+            test_path: build-ci/test_kestral
+          - os: ubuntu-latest
+            asset: kestral-linux-x64
+            bin_path: build-ci/kestral
+            test_path: build-ci/test_kestral
+          - os: windows-latest
+            asset: kestral-windows-x64.exe
+            bin_path: build-ci/Release/kestral.exe
+            test_path: build-ci/Release/test_kestral.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure and build (C++20)
+        run: cmake -B build-ci -DCMAKE_BUILD_TYPE=Release && cmake --build build-ci --config Release -j
+      - name: Run test suite
+        run: ./${{ matrix.test_path }}
+      - name: Smoke-test CLI binary
+        shell: bash
+        run: |
+          cp "${{ matrix.bin_path }}" "${{ matrix.asset }}"
+          chmod +x "${{ matrix.asset }}" || true
+          "./${{ matrix.asset }}" --version
+          "./${{ matrix.asset }}" banner
+          "./${{ matrix.asset }}" examples/hello.kes
+          "./${{ matrix.asset }}" examples/primes.kes > /dev/null
+          "./${{ matrix.asset }}" check examples/bank_account.kes
+          "./${{ matrix.asset }}" learn --list > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+  release:
+    needs: build-and-test
+    timeout-minutes: 10
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*

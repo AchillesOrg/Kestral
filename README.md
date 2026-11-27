@@ -1,6 +1,13 @@
-# Kestral
+<p align="center">
+  <img src="assets/icon.png" alt="Kestral" width="120">
+</p>
 
-A small, friendly, general-purpose programming language. Programs are plain text files ending in `.kes`.
+<h1 align="center">Kestral</h1>
+
+<p align="center">
+  A fast, minimal, general-purpose CLI programming language implemented in zero-dependency C++20 (<code>.kes</code>).<br/>
+  Includes the built-in <strong><code>nana</code></strong> TUI editor and <strong><code>kestral learn</code></strong> interactive terminal course.
+</p>
 
 ```kes
 fn greet(name = "friend") => "Hello, {name}!"
@@ -10,34 +17,71 @@ for person in ["Ada", "Grace", "Linus"] {
 }
 ```
 
-## What is in this folder
+> **Note:** Looking for the browser-based Web Studio? It lives separately at **[AchillesOrg/Kestral-Studio](https://github.com/AchillesOrg/Kestral-Studio)**. This repository focuses purely on the native `kestral` CLI runtime, compiler-grade test suite, `nana` TUI editor, and interactive CLI curriculum.
 
-| Path | What it is |
-| --- | --- |
-| `TUTORIAL.md` | The full 13-lesson course with challenges, hints, solutions and a reference. Start here. |
-| `dist/kestral-studio.html` | The Studio app. Double-click to open it in any browser. No install, works offline. |
-| `src/kestral.js` | The whole language (lexer, parser, interpreter, built-ins) in one readable file. |
-| `bin/kestral.js` | The command line tool and interactive REPL. |
-| `examples/` | Seven example programs, plus a tiny library loaded with `use`. |
-| `test/` | 355 automated checks (language, error messages, every lesson solution, every example). |
+## Install
 
-## Run a program
-
-You need [Node.js](https://nodejs.org) 16 or newer.
-
-```
-node bin/kestral.js examples/primes.kes     run a file
-node bin/kestral.js                         interactive REPL
-node bin/kestral.js -e 'say 6 * 7'          run one line
+**macOS & Linux:**
+```sh
+curl -fsSL https://raw.githubusercontent.com/AchillesOrg/Kestral/main/install.sh | sh
 ```
 
-Optional: `npm link` in this folder makes the command `kestral` available everywhere.
-
-## Rebuild and test
-
-```
-npm test          run all tests
-npm run build     rebuild TUTORIAL.md data and the Studio app (run: node lessons/build-lessons.js first if you edit lessons)
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/AchillesOrg/Kestral/main/install.ps1 | iex
 ```
 
-Lessons live in `lessons/src/*.md`. Edit one, run `node lessons/build-lessons.js && node app/build.js`, and both the tutorial and the app update.
+**Build from Source (C++20):**
+```sh
+git clone https://github.com/AchillesOrg/Kestral.git
+cd Kestral
+make
+make test
+make install
+```
+
+Or with CMake:
+```sh
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+ctest --test-dir build --output-on-failure
+```
+
+## CLI Usage
+
+```sh
+kestral                         # interactive multiline REPL
+kestral examples/primes.kes     # run a .kes file
+kestral -e 'say "hi".upper()'   # evaluate an inline snippet
+kestral check script.kes        # check syntax without running
+kestral nana [file.kes]         # open the minimalist nana TUI editor
+kestral learn                   # start the 10-lesson interactive TUI course
+kestral learn --list            # view curriculum and completion progress
+kestral banner                  # print the Kestral startup card
+```
+
+Pass `--bg mica` (default transparent terminal surface) or `--bg black` (minimal `#000000` black surface) to `kestral nana` or `kestral learn`, or press `t` inside any menu to switch live.
+
+## Built-in `nana` TUI Editor
+
+- Live `.kes` syntax highlighting (`//` comments, `{expr}` string interpolation, keywords, `|>`, `=>`, `??`, built-ins)
+- Starter templates with live preview, `.kes` file browser, smart auto-indent after `{`, and live syntax validation
+- **Adaptive & Minimalist**: hairline chrome (zero full-width solid bars), explicit cursor row positioning with `SIGWINCH` live resize, and selectable **Mica (transparent)** or **Pure Black (`#000000`)** surface
+- Shortcuts: `Ctrl+S` Save · `Ctrl+R` Run · `Ctrl+P` Menu · `Ctrl+K` Cut · `Ctrl+U` Paste · `Ctrl+G` Help · `Ctrl+X` Exit
+
+## Interactive Course (`kestral learn`)
+
+10 progressive CLI-first lessons inside an adaptive split-pane terminal IDE (Brief & Tests left, `nana` editor right) culminating in **Lesson 10 — Capstone: Number Cruncher**:
+
+1. Hello & Text Cards · 2. Functions & Defaults · 3. If Expressions & Match · 4. Loops, Ranges & Methods · 5. Lists, Maps & Word Counts · 6. Closures & State · 7. CLI Arguments & Boxed Output · 8. Files & Error Recovery · 9. Interactive Input Loops · 10. **Capstone: Number Cruncher**
+
+## Documentation
+
+- [Tutorial (`TUTORIAL.md`)](TUTORIAL.md) — Complete 10-lesson CLI walkthrough
+- [Language Guide (`docs/language.md`)](docs/language.md) — Syntax, expressions, closures, `match`, `use`
+- [Built-ins Reference (`docs/builtins.md`)](docs/builtins.md) — All 45+ built-in functions
+- [CLI & `nana` TUI (`docs/cli-and-nana.md`)](docs/cli-and-nana.md) — Commands, REPL, `nana`, and `kestral learn`
+
+## License
+
+MIT
