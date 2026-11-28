@@ -392,7 +392,13 @@ int main() {
         if (!real_kestral.empty()) {
             auto real_res = build_standalone_binary(tmp / "main.kes", tmp / "real_app", real_kestral);
             fs::path out_log = tmp / "real_out.txt";
-            std::string cmd_str = "\"" + fs::absolute(real_res.output_path).string() + "\" > \"" + out_log.string() + "\"";
+#ifdef _WIN32
+            std::string cmd_str = "cmd /c \"\"" + fs::absolute(real_res.output_path).string() +
+                                  "\" > \"" + out_log.string() + "\"\"";
+#else
+            std::string cmd_str = "\"" + fs::absolute(real_res.output_path).string() +
+                                  "\" > \"" + out_log.string() + "\"";
+#endif
             int rc = std::system(cmd_str.c_str());
             std::string captured;
             if (std::ifstream rf(out_log, std::ios::binary); rf) {

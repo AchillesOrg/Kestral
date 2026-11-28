@@ -120,34 +120,34 @@ void collect_uses_in_expr(const ExprPtr& expr, std::vector<std::string>& out);
 void collect_uses_in_stmts(const std::vector<StmtPtr>& stmts, std::vector<std::string>& out) {
     for (const auto& stmt : stmts) {
         if (!stmt) continue;
-        if (auto* u = dynamic_cast<UseStmt*>(stmt.get())) {
-            if (auto* lit = dynamic_cast<LiteralExpr*>(u->path.get())) {
+        if (auto* s_use = dynamic_cast<UseStmt*>(stmt.get())) {
+            if (auto* lit = dynamic_cast<LiteralExpr*>(s_use->path.get())) {
                 if (lit->kind == LiteralExpr::Kind::Text && !lit->sval.empty()) {
                     out.push_back(lit->sval);
                 }
             } else {
-                collect_uses_in_expr(u->path, out);
+                collect_uses_in_expr(s_use->path, out);
             }
-        } else if (auto* s = dynamic_cast<LetStmt*>(stmt.get())) {
-            collect_uses_in_expr(s->value, out);
-        } else if (auto* s = dynamic_cast<AssignStmt*>(stmt.get())) {
-            collect_uses_in_expr(s->value, out);
-        } else if (auto* s = dynamic_cast<FnStmt*>(stmt.get())) {
-            collect_uses_in_stmts(s->body, out);
-        } else if (auto* s = dynamic_cast<WhileStmt*>(stmt.get())) {
-            collect_uses_in_expr(s->cond, out);
-            collect_uses_in_stmts(s->body, out);
-        } else if (auto* s = dynamic_cast<LoopStmt*>(stmt.get())) {
-            collect_uses_in_expr(s->count, out);
-            collect_uses_in_stmts(s->body, out);
-        } else if (auto* s = dynamic_cast<ForStmt*>(stmt.get())) {
-            collect_uses_in_expr(s->iterable, out);
-            collect_uses_in_stmts(s->body, out);
-        } else if (auto* s = dynamic_cast<TryStmt*>(stmt.get())) {
-            collect_uses_in_stmts(s->try_body, out);
-            collect_uses_in_stmts(s->catch_body, out);
-        } else if (auto* s = dynamic_cast<ExprStmt*>(stmt.get())) {
-            collect_uses_in_expr(s->expr, out);
+        } else if (auto* s_let = dynamic_cast<LetStmt*>(stmt.get())) {
+            collect_uses_in_expr(s_let->value, out);
+        } else if (auto* s_assign = dynamic_cast<AssignStmt*>(stmt.get())) {
+            collect_uses_in_expr(s_assign->value, out);
+        } else if (auto* s_fn = dynamic_cast<FnStmt*>(stmt.get())) {
+            collect_uses_in_stmts(s_fn->body, out);
+        } else if (auto* s_while = dynamic_cast<WhileStmt*>(stmt.get())) {
+            collect_uses_in_expr(s_while->cond, out);
+            collect_uses_in_stmts(s_while->body, out);
+        } else if (auto* s_loop = dynamic_cast<LoopStmt*>(stmt.get())) {
+            collect_uses_in_expr(s_loop->count, out);
+            collect_uses_in_stmts(s_loop->body, out);
+        } else if (auto* s_for = dynamic_cast<ForStmt*>(stmt.get())) {
+            collect_uses_in_expr(s_for->iterable, out);
+            collect_uses_in_stmts(s_for->body, out);
+        } else if (auto* s_try = dynamic_cast<TryStmt*>(stmt.get())) {
+            collect_uses_in_stmts(s_try->try_body, out);
+            collect_uses_in_stmts(s_try->catch_body, out);
+        } else if (auto* s_expr = dynamic_cast<ExprStmt*>(stmt.get())) {
+            collect_uses_in_expr(s_expr->expr, out);
         }
     }
 }
