@@ -6,6 +6,8 @@
 | --- | --- |
 | `kestral` / `kestral repl` | Interactive multiline REPL with startup banner |
 | `kestral <file.kes> [args...]` | Execute a program with forwarded `args()` |
+| `kestral build <file.kes> [-o <out>] [--run]` | Compile a `.kes` program (and local `use` files) into a standalone native binary |
+| `kestral compile <file.kes> [-o <out>] [--run]` | Alias for `build` |
 | `kestral -e "<code>"` | Run inline Kestral snippet |
 | `kestral check <file.kes>` | Parse & syntax-check without executing |
 | `kestral nana [file.kes] [--bg mica\|black]` | Launch the minimalist `nana` TUI studio & editor |

@@ -1,4 +1,5 @@
 #include "banner.hpp"
+#include "bundler.hpp"
 #include "error.hpp"
 #include "interp.hpp"
 #include "learn.hpp"
@@ -13,6 +14,12 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#ifdef _WIN32
+#include <process.h>
+#else
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 namespace fs = std::filesystem;
 using namespace kestral;
@@ -314,6 +321,136 @@ int main() {
         check("parse_mouse_event wheel down", parse_mouse_event("MOUSE:WHEEL_DOWN:5:12", me) && me.kind == "WHEEL_DOWN" && me.row == 5 && me.col == 12);
         check("parse_mouse_event invalid", !parse_mouse_event("UP", me) && !parse_mouse_event("MOUSE:BAD:1:2", me));
         check("footer_shortcut_hit", footer_shortcut_hit(" ^S Save   ^R Run   ^X Exit ", 13, {{"^S Save", "\x13"}, {"^R Run", "\x12"}}) == "\x12");
+    }
+
+    /* ---- Standalone Binary Bundler Tests ---- */
+    {
+        EmbeddedBundle b;
+        b.entry_name = "app.kes";
+        b.entry_source = "use \"lib/util.kes\"\nsay greet(args().join(\",\"))\n";
+        b.files.emplace_back("lib/util.kes", "fn greet(x) => \"hi \" + x\n");
+
+        std::string host = "DUMMY_NATIVE_HOST_BYTES";
+        std::string trailer = encode_bundle_trailer(b);
+        std::string combined = host + trailer;
+
+        check("stripped_host_size strips trailer", stripped_host_size(combined) == host.size());
+        check("stripped_host_size leaves plain host", stripped_host_size(host) == host.size());
+
+        auto decoded = decode_bundle_trailer(combined);
+        check("decode_bundle_trailer ok",
+              decoded.has_value() && decoded->entry_name == "app.kes" &&
+                  decoded->entry_source == b.entry_source && decoded->files.size() == 1 &&
+                  decoded->files[0].first == "lib/util.kes");
+        check("decode rejects corrupted tail", !decode_bundle_trailer(combined.substr(0, combined.size() - 2)).has_value());
+        check("decode rejects plain host", !decode_bundle_trailer(host).has_value());
+
+        fs::path tmp = fs::temp_directory_path() / "kestral_bundler_test";
+        std::error_code ec;
+        fs::remove_all(tmp, ec);
+        fs::create_directories(tmp / "sub", ec);
+
+        {
+            std::ofstream f(tmp / "stub_host", std::ios::binary);
+            f << host;
+        }
+        {
+            std::ofstream f(tmp / "sub" / "helper.kes", std::ios::binary);
+            f << "fn twice(n) => n * 2\n";
+        }
+        {
+            std::ofstream f(tmp / "main.kes", std::ios::binary);
+            f << "use \"sub/helper.kes\"\nsay twice(21)\n";
+        }
+        {
+            std::ofstream f(tmp / "bad.kes", std::ios::binary);
+            f << "if true {\n";
+        }
+
+        auto res = build_standalone_binary(tmp / "main.kes", tmp / "out_app", tmp / "stub_host");
+        check("build output size positive", res.size_bytes > host.size() && res.bundled_file_count == 1);
+        auto from_disk = read_embedded_bundle_from_file(res.output_path);
+        check("read_embedded_bundle_from_file ok",
+              from_disk.has_value() && from_disk->files.size() == 1 &&
+                  from_disk->files[0].first == "sub/helper.kes");
+
+        bool threw_syntax = false;
+        try {
+            build_standalone_binary(tmp / "bad.kes", tmp / "bad_app", tmp / "stub_host");
+        } catch (const KestralError&) {
+            threw_syntax = true;
+        }
+        check("build rejects invalid syntax before writing",
+              threw_syntax && !fs::exists(tmp / "bad_app") && !fs::exists(tmp / "bad_app.exe"));
+
+        // If the real kestral executable is alongside test_kestral, compile and execute a real binary.
+        fs::path self_dir = get_self_executable_path().parent_path();
+        fs::path real_kestral;
+        for (const auto& cand : {self_dir / "kestral", self_dir / "kestral.exe"}) {
+            if (fs::exists(cand)) { real_kestral = cand; break; }
+        }
+        if (!real_kestral.empty()) {
+            auto real_res = build_standalone_binary(tmp / "main.kes", tmp / "real_app", real_kestral);
+            fs::path out_log = tmp / "real_out.txt";
+            std::string cmd_str = "\"" + fs::absolute(real_res.output_path).string() + "\" > \"" + out_log.string() + "\"";
+            int rc = std::system(cmd_str.c_str());
+            std::string captured;
+            if (std::ifstream rf(out_log, std::ios::binary); rf) {
+                std::ostringstream ss;
+                ss << rf.rdbuf();
+                captured = ss.str();
+            }
+            while (!captured.empty() && (captured.back() == '\n' || captured.back() == '\r')) captured.pop_back();
+            check("real standalone kestral binary runs", rc == 0 && captured == "42",
+                  "rc=" + std::to_string(rc) + " out=" + captured);
+
+            {
+                std::ofstream f(tmp / "args_app.kes", std::ios::binary);
+                f << "say args().join(\":\")\n";
+            }
+            auto args_res = build_standalone_binary(tmp / "args_app.kes", tmp / "args_bin", real_kestral);
+            std::string abs_bin = fs::absolute(args_res.output_path).string();
+            int args_rc = -1;
+#ifdef _WIN32
+            std::string a1 = "foo", a2 = "bar baz";
+            char* const cargv[] = {const_cast<char*>(abs_bin.c_str()), const_cast<char*>(a1.c_str()),
+                                   const_cast<char*>(a2.c_str()), nullptr};
+            args_rc = static_cast<int>(_spawnv(_P_WAIT, abs_bin.c_str(), cargv));
+#else
+            int pipefd[2];
+            if (pipe(pipefd) == 0) {
+                pid_t pid = fork();
+                if (pid == 0) {
+                    close(pipefd[0]);
+                    dup2(pipefd[1], STDOUT_FILENO);
+                    close(pipefd[1]);
+                    std::string a1 = "foo", a2 = "bar baz";
+                    char* const cargv[] = {abs_bin.data(), a1.data(), a2.data(), nullptr};
+                    execv(abs_bin.c_str(), cargv);
+                    _exit(127);
+                }
+                close(pipefd[1]);
+                std::string pout;
+                char buf[256];
+                ssize_t n;
+                while ((n = read(pipefd[0], buf, sizeof(buf))) > 0) {
+                    pout.append(buf, static_cast<std::size_t>(n));
+                }
+                close(pipefd[0]);
+                int st = 0;
+                waitpid(pid, &st, 0);
+                args_rc = WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+                while (!pout.empty() && (pout.back() == '\n' || pout.back() == '\r')) pout.pop_back();
+                check("real standalone kestral binary forwards args()", args_rc == 0 && pout == "foo:bar baz",
+                      "rc=" + std::to_string(args_rc) + " out=" + pout);
+            }
+#endif
+#ifdef _WIN32
+            check("real standalone kestral binary forwards args() win", args_rc == 0);
+#endif
+        }
+
+        fs::remove_all(tmp, ec);
     }
 
     std::cout << "\nKestral test suite: " << g_pass << " passed, " << g_fail << " failed." << std::endl;

@@ -52,6 +52,8 @@ ctest --test-dir build --output-on-failure
 ```sh
 kestral                         # interactive multiline REPL
 kestral examples/primes.kes     # run a .kes file
+kestral build app.kes -o app    # compile a .kes program into a standalone binary
+kestral compile app.kes -o app  # alias for build (add --run to run right away)
 kestral -e 'say "hi".upper()'   # evaluate an inline snippet
 kestral check script.kes        # check syntax without running
 kestral nana [file.kes]         # open the minimalist nana TUI editor
@@ -67,7 +69,7 @@ Pass `--bg mica` (default transparent terminal surface) or `--bg black` (minimal
 - Live `.kes` syntax highlighting (`//` comments, `{expr}` string interpolation, keywords, `|>`, `=>`, `??`, built-ins)
 - Starter templates with live preview, `.kes` file browser, smart auto-indent after `{`, and live syntax validation
 - **Adaptive & Minimalist**: hairline chrome (zero full-width solid bars), explicit cursor row positioning with `SIGWINCH` live resize, and selectable **Mica (transparent)** or **Pure Black (`#000000`)** surface
-- Shortcuts: `Ctrl+S` Save · `Ctrl+R` Run · `Ctrl+P` Menu · `Ctrl+K` Cut · `Ctrl+U` Paste · `Ctrl+G` Help · `Ctrl+X` Exit
+- Shortcuts: `Ctrl+S` Save · `Ctrl+R` Run · `Ctrl+B` Build binary · `Ctrl+P` Menu · `Ctrl+K` Cut · `Ctrl+U` Paste · `Ctrl+G` Help · `Ctrl+X` Exit
 
 ## Interactive Course (`kestral learn`)
 

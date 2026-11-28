@@ -48,6 +48,20 @@ jobs:
           "./${{ matrix.asset }}" examples/primes.kes > /dev/null
           "./${{ matrix.asset }}" check examples/bank_account.kes
           "./${{ matrix.asset }}" learn --list > /dev/null
+          "./${{ matrix.asset }}" build examples/hello.kes -o ./hello_bin | grep -q "Built standalone binary"
+          if [ -f ./hello_bin.exe ]; then
+            ./hello_bin.exe | grep -q "Hello"
+          else
+            ./hello_bin | grep -q "Hello"
+          fi
+          printf 'say args().join(",")\n' > _ci_args.kes
+          "./${{ matrix.asset }}" compile _ci_args.kes -o ./args_bin > /dev/null
+          if [ -f ./args_bin.exe ]; then
+            test "$(./args_bin.exe alpha beta | tr -d '\r')" = "alpha,beta"
+          else
+            test "$(./args_bin alpha beta | tr -d '\r')" = "alpha,beta"
+          fi
+          rm -f _ci_args.kes hello_bin hello_bin.exe args_bin args_bin.exe
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}

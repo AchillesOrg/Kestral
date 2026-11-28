@@ -1,3 +1,3 @@
 #pragma once
 
-#define KESTRAL_VERSION "2.0.2"
+#define KESTRAL_VERSION "2.1.0"

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(kestral VERSION 2.0.2 LANGUAGES CXX)
+project(kestral VERSION 2.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,6 +13,7 @@ else()
 endif()
 
 add_library(kestral_core STATIC
+  src/bundler.cpp
   src/lexer.cpp
   src/parser.cpp
   src/interp.cpp

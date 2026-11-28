@@ -1,5 +1,6 @@
 #include "nana.hpp"
 #include "banner.hpp"
+#include "bundler.hpp"
 #include "error.hpp"
 #include "interp.hpp"
 #include "learn.hpp"
@@ -68,9 +69,9 @@ const char* CHEAT_SHEET =
     "\n"
     "nana Shortcuts\n"
     "──────────────\n"
-    "Ctrl+S  Save      Ctrl+R  Run buffer    Ctrl+P  TUI Menu\n"
-    "Ctrl+K  Cut line  Ctrl+U  Paste line    Ctrl+G  Help\n"
-    "Ctrl+X  Exit";
+    "Ctrl+S  Save      Ctrl+R  Run buffer    Ctrl+B  Build binary\n"
+    "Ctrl+P  TUI Menu  Ctrl+K  Cut line      Ctrl+U  Paste line\n"
+    "Ctrl+G  Help      Ctrl+X  Exit";
 
 #ifndef _WIN32
 volatile std::sig_atomic_t g_sigwinch = 0;
@@ -927,7 +928,7 @@ std::string NanaBuffer::render_frame(int rows, int cols, const std::string& bg_m
     std::string extra = status.empty() ? "" : ("  │  " + status);
     screen.push_back(" " + badge + extra);
 
-    std::string footer = " ^S Save   ^R Run   ^P Menu   ^K Cut   ^U Paste   ^G Help   ^X Exit ";
+    std::string footer = " ^S Save   ^R Run   ^B Build   ^P Menu   ^K Cut   ^U Paste   ^G Help   ^X Exit ";
     screen.push_back(std::string(DIM) + footer.substr(0, static_cast<std::size_t>(cols)) + RESET);
 
     int cr = (row - scroll_y) + 3;
@@ -1569,11 +1570,12 @@ int run_nana(const std::string& filepath, const std::string& bg_override) {
                 continue;
             }
             if (me.row == rows_e) {
-                std::string footer = std::string(" ^S Save   ^R Run   ^P Menu   ^K Cut   ^U Paste   ^G Help   ^X Exit ")
+                std::string footer = std::string(" ^S Save   ^R Run   ^B Build   ^P Menu   ^K Cut   ^U Paste   ^G Help   ^X Exit ")
                                          .substr(0, static_cast<std::size_t>(cols_e));
                 std::string mapped = footer_shortcut_hit(footer, me.col, {
                     {"^S Save", "\x13"},
                     {"^R Run", "\x12"},
+                    {"^B Build", "\x02"},
                     {"^P Menu", "\x10"},
                     {"^K Cut", "\x0b"},
                     {"^U Paste", "\x15"},
@@ -1628,6 +1630,28 @@ int run_nana(const std::string& filepath, const std::string& bg_override) {
             continue;
         }
         if (k == "\x12") { run_buffer_in_nana(buf, bg_mode, tty); continue; }
+        if (k == "\x02") {
+            fs::path def_out = buf.filepath.empty()
+                                   ? default_binary_output_path("app.kes")
+                                   : default_binary_output_path(buf.filepath);
+            bool canc = false;
+            std::string target = prompt_bar("Build binary as: ", def_out.string(), &buf, bg_mode, &canc);
+            if (!canc && !target.empty()) {
+                try {
+                    fs::path base_dir = buf.filepath.empty()
+                                            ? fs::current_path()
+                                            : fs::absolute(buf.filepath).parent_path();
+                    std::string ename = buf.filepath.empty()
+                                            ? "app.kes"
+                                            : fs::path(buf.filepath).filename().string();
+                    auto res = build_standalone_binary_from_source(ename, buf.text(), base_dir, target);
+                    buf.status = "Built binary: " + res.output_path.string();
+                } catch (const std::exception& e) {
+                    buf.status = std::string("Build failed: ") + e.what();
+                }
+            }
+            continue;
+        }
         if (k == "\x07") { show_overlay("Kestral & nana Help", CHEAT_SHEET, bg_mode); continue; }
         if (k == "\x0b") { buf.cut_line(); continue; }
         if (k == "\x15") { buf.paste_line(); continue; }
