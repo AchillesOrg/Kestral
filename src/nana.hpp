@@ -107,6 +107,9 @@ std::string prompt_bar(const std::string& label, const std::string& def = "",
                        bool* canceled = nullptr);
 void show_overlay(const std::string& title, const std::string& body,
                   const std::string& bg_mode = "mica");
+void run_interactive_code(const std::string& code, const std::string& title,
+                          const std::vector<std::string>& cli_args,
+                          const std::string& base_dir, RawTtyGuard& tty);
 
 int run_nana(const std::string& filepath = "", const std::string& bg_override = "");
 

@@ -1245,9 +1245,19 @@ void show_overlay(const std::string& title, const std::string& body, const std::
     }
 }
 
-static void run_buffer_in_nana(const NanaBuffer& buf, const std::string& bg_mode) {
+void run_interactive_code(const std::string& code, const std::string& title,
+                          const std::vector<std::string>& cli_args,
+                          const std::string& base_dir, RawTtyGuard& tty) {
+    std::cout << "\x1b[?1006l\x1b[?1000l\x1b[?1049l\x1b[?25h\x1b[0m" << std::flush;
+    tty.leave();
+
+    std::cout << "\x1b[2J\x1b[H\x1b[1;96m▶ Running " << title << "\x1b[0m  \x1b[90m(Ctrl+C to stop)\x1b[0m\n"
+              << GRAY << "──────────────────────────────────────────────────" << RESET << "\n"
+              << std::flush;
+
     InterpConfig cfg;
-    fs::path base = buf.filepath.empty() ? fs::current_path() : fs::absolute(buf.filepath).parent_path();
+    cfg.cli_args = cli_args;
+    fs::path base = base_dir.empty() ? fs::current_path() : fs::path(base_dir);
     cfg.read_file_fn = [base](const std::string& rel) {
         std::ifstream f(base / rel, std::ios::binary);
         if (!f) throw std::runtime_error("file not found");
@@ -1255,10 +1265,46 @@ static void run_buffer_in_nana(const NanaBuffer& buf, const std::string& bg_mode
         ss << f.rdbuf();
         return ss.str();
     };
-    auto res = run_captured(buf.text(), {}, cfg);
-    std::string out = res.ok ? (res.text.empty() ? "(finished with no output)" : res.text)
-                             : res.error_text;
-    show_overlay("Run Output (Kestral)", out, bg_mode);
+    cfg.print_fn = [](const std::string& s) {
+        std::cout << s << "\n" << std::flush;
+    };
+    cfg.ask_fn = [](const std::string& prompt) -> Value {
+        if (!prompt.empty()) std::cout << prompt << std::flush;
+        std::string line;
+        if (!std::getline(std::cin, line)) {
+            std::cin.clear();
+            return Value(std::string(""));
+        }
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        return Value(line);
+    };
+
+    try {
+        Interp interp(cfg);
+        interp.run(code);
+    } catch (const KestralError& err) {
+        std::string loc = (err.line > 0) ? ("Line " + std::to_string(err.line) + ": ") : "";
+        std::cout << RED_CLR << loc << err.what() << RESET << "\n" << std::flush;
+    } catch (const std::exception& err) {
+        std::cout << RED_CLR << err.what() << RESET << "\n" << std::flush;
+    }
+
+    std::cout << "\x1b[?1006l\x1b[?1000l\x1b[?25h\x1b[0m\n"
+              << GRAY << "──────────────────────────────────────────────────\n"
+              << "Press any key to return to editor..." << RESET << std::flush;
+    tty.enter();
+    for (;;) {
+        std::string rk = read_key();
+        if (!rk.empty() && rk != "RESIZE") break;
+    }
+    std::cout << "\x1b[?1049h\x1b[?1000h\x1b[?1006h\x1b[?25h" << std::flush;
+}
+
+static void run_buffer_in_nana(const NanaBuffer& buf, const std::string& bg_mode, RawTtyGuard& tty) {
+    (void)bg_mode;
+    fs::path base = buf.filepath.empty() ? fs::current_path() : fs::absolute(buf.filepath).parent_path();
+    std::string title = buf.filepath.empty() ? "Kestral Buffer" : fs::path(buf.filepath).filename().string();
+    run_interactive_code(buf.text(), title, {}, base.string(), tty);
 }
 
 static bool select_template_tui(std::string& bg_mode, NanaBuffer& out_buf) {
@@ -1375,7 +1421,8 @@ static bool select_file_tui(std::string& bg_mode, NanaBuffer& out_buf) {
     }
 }
 
-static bool run_menu_tui(NanaBuffer* active, bool& has_active, std::string& bg_mode, NanaBuffer& out_buf) {
+static bool run_menu_tui(NanaBuffer* active, bool& has_active, std::string& bg_mode,
+                         NanaBuffer& out_buf, RawTtyGuard& tty) {
     int sel = 0;
     for (;;) {
         auto items = welcome_items(has_active, bg_mode);
@@ -1436,7 +1483,7 @@ static bool run_menu_tui(NanaBuffer* active, bool& has_active, std::string& bg_m
             if (select_file_tui(bg_mode, out_buf)) return true;
         }
         if (action == "learn") {
-            run_learn(0, false, false, bg_mode, true);
+            run_learn(0, false, false, bg_mode, true, &tty);
             bg_mode = load_bg_mode();
         }
         if (action == "bg") {
@@ -1482,7 +1529,7 @@ int run_nana(const std::string& filepath, const std::string& bg_override) {
     if (has_buf) {
         buf = NanaBuffer::from_file(filepath);
     } else {
-        if (!run_menu_tui(nullptr, has_buf, bg_mode, buf)) return 0;
+        if (!run_menu_tui(nullptr, has_buf, bg_mode, buf, tty)) return 0;
         has_buf = true;
     }
 
@@ -1549,7 +1596,7 @@ int run_nana(const std::string& filepath, const std::string& bg_override) {
 
         if (k == "\x10") {
             NanaBuffer next_buf;
-            if (!run_menu_tui(&buf, has_buf, bg_mode, next_buf)) return 0;
+            if (!run_menu_tui(&buf, has_buf, bg_mode, next_buf, tty)) return 0;
             buf = std::move(next_buf);
             continue;
         }
@@ -1580,7 +1627,7 @@ int run_nana(const std::string& filepath, const std::string& bg_override) {
             }
             continue;
         }
-        if (k == "\x12") { run_buffer_in_nana(buf, bg_mode); continue; }
+        if (k == "\x12") { run_buffer_in_nana(buf, bg_mode, tty); continue; }
         if (k == "\x07") { show_overlay("Kestral & nana Help", CHEAT_SHEET, bg_mode); continue; }
         if (k == "\x0b") { buf.cut_line(); continue; }
         if (k == "\x15") { buf.paste_line(); continue; }

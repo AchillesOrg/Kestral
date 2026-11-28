@@ -65,6 +65,7 @@ std::string render_learn_workspace(const Lesson& lesson, NanaBuffer& buf,
                                    const std::string& bg_mode = "mica");
 
 int run_learn(int lesson_num = 0, bool list_only = false, bool reset = false,
-              const std::string& bg_override = "", bool managed_tty = false);
+              const std::string& bg_override = "", bool managed_tty = false,
+              RawTtyGuard* parent_tty = nullptr);
 
 } // namespace kestral

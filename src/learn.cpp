@@ -676,7 +676,8 @@ static std::string get_draft_or(const LearnProgress& p, const Lesson& l) {
 }
 
 int run_learn(int lesson_num, bool list_only, bool reset,
-              const std::string& bg_override, bool managed_tty) {
+              const std::string& bg_override, bool managed_tty,
+              RawTtyGuard* parent_tty) {
     if (reset) {
         reset_learn_progress();
         if (list_only) {
@@ -696,9 +697,10 @@ int run_learn(int lesson_num, bool list_only, bool reset,
     }
 
     std::string bg_mode = bg_override.empty() ? load_bg_mode() : save_bg_mode(bg_override);
-    RawTtyGuard tty;
+    RawTtyGuard local_tty;
+    RawTtyGuard& active_tty = (managed_tty && parent_tty) ? *parent_tty : local_tty;
     if (!managed_tty) {
-        tty.enter();
+        active_tty.enter();
         std::cout << "\x1b[?1049h\x1b[?1000h\x1b[?1006h" << std::flush;
     }
     struct AltGuard {
@@ -890,13 +892,8 @@ int run_learn(int lesson_num, bool list_only, bool reset,
             }
             if (k == "\x12") { // Ctrl+R
                 const auto& tc = lesson.tests.front();
-                InterpConfig cfg;
-                cfg.cli_args = tc.cli_args;
-                cfg.max_steps = 2000000;
-                auto res = run_captured(buf.text(), tc.inputs, cfg);
-                std::string body = res.ok ? (res.text.empty() ? "(finished with no output)" : res.text)
-                                          : res.error_text;
-                show_overlay("Run Output · " + lesson.title, body, bg_mode);
+                run_interactive_code(buf.text(), lesson.title, tc.cli_args,
+                                     fs::current_path().string(), active_tty);
                 continue;
             }
             if (k == "\x08") { // Ctrl+H
